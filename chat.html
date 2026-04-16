@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
+
+        .auth-panel, .chat-panel { display: none; flex-direction: column; flex: 1; }
+        .auth-panel.active, .chat-panel.active { display: flex; }
+
+        .header { background: #fff; padding: 15px 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 18px; color: #333; }
+        .header button { background: #ff4757; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+
+        .auth-form { background: #fff; padding: 30px; border-radius: 8px; margin: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .auth-form h2 { margin-bottom: 20px; color: #333; }
+        .auth-form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .auth-form button { width: 100%; padding: 12px; background: #4CAF50; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .auth-form .tab { display: flex; margin-bottom: 20px; }
+        .auth-form .tab button { flex: 1; background: #e0e0e0; color: #333; }
+        .auth-form .tab button.active { background: #4CAF50; color: #fff; }
+
+        .messages { flex: 1; overflow-y: auto; padding: 20px; }
+        .message { margin-bottom: 15px; display: flex; }
+        .message.user { justify-content: flex-end; }
+        .message.assistant { justify-content: flex-start; }
+        .message .bubble { max-width: 70%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; }
+        .message.user .bubble { background: #4CAF50; color: #fff; border-bottom-right-radius: 4px; }
+        .message.assistant .bubble { background: #fff; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        .input-area { background: #fff; padding: 15px 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; }
+        .input-area input { flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 24px; font-size: 14px; outline: none; }
+        .input-area input:focus { border-color: #4CAF50; }
+        .input-area button { background: #4CAF50; color: #fff; border: none; padding: 12px 24px; border-radius: 24px; cursor: pointer; font-size: 14px; }
+        .input-area button:disabled { background: #ccc; }
+
+        .session-list { background: #fff; width: 250px; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+        .session-list .title { padding: 15px; font-weight: bold; border-bottom: 1px solid #ddd; }
+        .session-list .new-btn { margin: 10px; padding: 10px; background: #4CAF50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        .session-list .sessions { flex: 1; overflow-y: auto; }
+        .session-list .session-item { padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .session-list .session-item:hover { background: #f5f5f5; }
+        .session-list .session-item.active { background: #e8f5e9; }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="auth-panel active" id="authPanel">
+            <div class="auth-form">
+                <h2>AI Chat</h2>
+                <div class="tab">
+                    <button class="active" onclick="showTab('login')">Login</button>
+                    <button onclick="showTab('register')">Register</button>
+                </div>
+                <div id="loginForm">
+                    <input type="text" id="loginUsername" placeholder="Username">
+                    <input type="password" id="loginPassword" placeholder="Password">
+                    <button onclick="login()">Login</button>
+                </div>
+                <div id="registerForm" style="display:none">
+                    <input type="text" id="regUsername" placeholder="Username">
+                    <input type="email" id="regEmail" placeholder="Email">
+                    <input type="password" id="regPassword" placeholder="Password">
+                    <button onclick="register()">Register</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-panel" id="chatPanel">
+            <div class="header">
+                <h1>AI Chat</h1>
+                <button onclick="logout()">Logout</button>
+            </div>
+            <div style="flex:1;display:flex">
+                <div class="session-list">
+                    <div class="title">Sessions</div>
+                    <button class="new-btn" onclick="createSession()">+ New Chat</button>
+                    <div class="sessions" id="sessionList"></div>
+                </div>
+                <div class="main-content">
+                    <div class="messages" id="messages"></div>
+                    <div class="input-area">
+                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendMessage()">
+                        <button id="sendBtn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8080/api/v1';
+        let token = localStorage.getItem('token');
+        let currentSessionId = null;
+
+        if (token) showChat();
+
+        function showTab(tab) {
+            document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+            document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+            document.querySelectorAll('.auth-form .tab button').forEach((btn, i) => {
+                btn.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+            });
+        }
+
+        async function register() {
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+
+            const res = await fetch(`${API}/users/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
+
+            if (res.ok) {
+                alert('Registration successful! Please login.');
+                showTab('login');
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (err.detail || 'Registration failed'));
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            const res = await fetch(`${API}/users/login`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                token = data.access_token;
+                localStorage.setItem('token', token);
+                showChat();
+                loadSessions();
+            } else {
+                alert('Login failed');
+            }
+        }
+
+        function logout() {
+            token = null;
+            localStorage.removeItem('token');
+            document.getElementById('authPanel').classList.add('active');
+            document.getElementById('chatPanel').classList.remove('active');
+        }
+
+        function showChat() {
+            document.getElementById('authPanel').classList.remove('active');
+            document.getElementById('chatPanel').classList.add('active');
+        }
+
+        async function loadSessions() {
+            const res = await fetch(`${API}/sessions`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const sessions = await res.json();
+                const list = document.getElementById('sessionList');
+                list.innerHTML = '';
+                sessions.forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
+                    div.textContent = s.title || 'Chat ' + s.id.slice(0, 8);
+                    div.onclick = () => loadSession(s.id);
+                    list.appendChild(div);
+                });
+            }
+        }
+
+        async function createSession() {
+            const res = await fetch(`${API}/sessions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ title: 'New Chat' })
+            });
+            if (res.ok) {
+                const session = await res.json();
+                currentSessionId = session.id;
+                document.getElementById('messages').innerHTML = '';
+                loadSessions();
+            }
+        }
+
+        async function loadSession(sessionId) {
+            currentSessionId = sessionId;
+            const res = await fetch(`${API}/sessions/${sessionId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const session = await res.json();
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML = '';
+                session.messages.forEach(m => addMessage(m.role, m.content));
+                loadSessions();
+            }
+        }
+
+        function addMessage(role, content) {
+            const messagesDiv = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = 'message ' + role;
+            div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            if (!content) return;
+            if (!currentSessionId) await createSession();
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+
+            addMessage('user', content);
+            input.value = '';
+
+            const res = await fetch(`${API}/sessions/${currentSessionId}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ role: 'user', content })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                addMessage('assistant', data.response);
+            } else {
+                addMessage('assistant', 'Error: Failed to get response');
+            }
+
+            sendBtn.disabled = false;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # FastAPI 应用服务
+  app:
+    build: .
+    container_name: ai-agent-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/ai_agent
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-must-be-at-least-32-characters-long}
+      - DEBUG=${DEBUG:-false}
+      - APP_NAME=AI Agent Service
+      - APP_VERSION=1.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-agent-network
+    restart: unless-stopped
+
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-agent-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=ai_agent
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-agent-network
+    restart: unless-stopped
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: ai-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-agent-network
+    restart: unless-stopped
+
+  # Celery Worker（异步任务处理器）
+  celery-worker:
+    build: .
+    container_name: ai-agent-celery
+    command: celery -A app.tasks.ai_tasks worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/ai_agent
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here-must-be-at-least-32-characters-long}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-agent-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  ai-agent-network:
+    driver: bridge
