@@ -66,9 +66,10 @@ async def send_message(
     service = SessionService(db)
     session = await service.add_message(session_id, current_user.id, message)
     
-    # 调用 AI 服务
+    # 调用 AI 服务（过滤掉timestamp字段，只保留role和content）
+    ai_messages = [{"role": msg["role"], "content": msg["content"]} for msg in session.messages]
     ai_response = await ai_service.generate_response(
-        messages=session.messages,
+        messages=ai_messages,
         session_id=session_id
     )
     

@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm.attributes import flag_modified
 from typing import Optional, List
 import uuid
 from loguru import logger
@@ -26,19 +27,22 @@ class SessionService:
             session_id=str(uuid.uuid4()),
             user_id=user_id,
             title=session_data.title or "新对话",
-            metadata=session_data.meta_data,
+            meta_data=session_data.meta_data,
             messages=[]
         )
         self.db.add(session)
         await self.db.flush()
         
-        # 缓存会话元数据到 Redis
-        cache_key = f"session:meta:{session.session_id}"
-        await redis_client.set(
-            cache_key,
-            {"title": session.title, "user_id": user_id},
-            ttl=settings.SESSION_TTL
-        )
+        # 缓存会话元数据到 Redis（失败不影响主流程）
+        try:
+            cache_key = f"session:meta:{session.session_id}"
+            await redis_client.set(
+                cache_key,
+                {"title": session.title, "user_id": user_id},
+                ttl=settings.SESSION_TTL
+            )
+        except Exception as e:
+            logger.warning(f"Redis cache failed for create_session: {e}")
         
         return session
     
@@ -49,13 +53,16 @@ class SessionService:
     ) -> Optional[Session]:
         """获取会话（带缓存）"""
         # 先从 Redis 检查是否有完整缓存
-        cache_key = f"session:full:{session_id}"
-        cached = await redis_client.get(cache_key)
-        
-        if cached:
-            # 从缓存重建对象（简化处理）
-            logger.info(f"Session {session_id} from cache")
-            # 实际应该反序列化为 Session 对象
+        try:
+            cache_key = f"session:full:{session_id}"
+            cached = await redis_client.get(cache_key)
+            
+            if cached:
+                # 从缓存重建对象（简化处理）
+                logger.info(f"Session {session_id} from cache")
+                # 实际应该反序列化为 Session 对象
+        except Exception as e:
+            logger.warning(f"Redis get failed for get_session: {e}")
         
         # 从数据库查询
         stmt = select(Session).where(
@@ -66,17 +73,21 @@ class SessionService:
         session = result.scalar_one_or_none()
         
         if session:
-            # 更新缓存
-            await redis_client.set(
-                cache_key,
-                {
-                    "id": session.id,
-                    "session_id": session.session_id,
-                    "title": session.title,
-                    "messages": session.messages,
-                },
-                ttl=settings.SESSION_TTL
-            )
+            # 更新缓存（失败不影响主流程）
+            try:
+                cache_key = f"session:full:{session_id}"
+                await redis_client.set(
+                    cache_key,
+                    {
+                        "id": session.id,
+                        "session_id": session.session_id,
+                        "title": session.title,
+                        "messages": session.messages,
+                    },
+                    ttl=settings.SESSION_TTL
+                )
+            except Exception as e:
+                logger.warning(f"Redis set failed for get_session: {e}")
         
         return session
     
@@ -92,18 +103,23 @@ class SessionService:
             raise ValueError("Session not found")
         
         # 更新消息列表
+        # 更新消息列表
         messages = session.messages or []
         msg_dict = message.model_dump()
         msg_dict['timestamp'] = msg_dict['timestamp'].isoformat() if msg_dict.get('timestamp') else None
         messages.append(msg_dict)
         session.messages = messages
+        flag_modified(session, "messages")  # 标记JSON字段已修改，让SQLAlchemy检测到更新
         
         await self.db.commit()
         await self.db.refresh(session)
         
-        # 使缓存失效
-        cache_key = f"session:full:{session_id}"
-        await redis_client.delete(cache_key)
+        # 使缓存失效（失败不影响主流程）
+        try:
+            cache_key = f"session:full:{session_id}"
+            await redis_client.delete(cache_key)
+        except Exception as e:
+            logger.warning(f"Redis delete failed for add_message: {e}")
         
         return session
     
@@ -137,8 +153,11 @@ class SessionService:
         await self.db.commit()
         
         if result.rowcount > 0:
-            # 清理缓存
-            await redis_client.delete(f"session:full:{session_id}")
-            await redis_client.delete(f"session:meta:{session_id}")
+            # 清理缓存（失败不影响主流程）
+            try:
+                await redis_client.delete(f"session:full:{session_id}")
+                await redis_client.delete(f"session:meta:{session_id}")
+            except Exception as e:
+                logger.warning(f"Redis delete failed for delete_session: {e}")
             return True
         return False

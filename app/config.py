@@ -36,8 +36,9 @@ class Settings(BaseSettings):
 
     # 火山引擎 ARK API 配置
     ARK_API_KEY: Optional[str] = Field(default=None)
-    ARK_BASE_URL: str = "https://ark.cn-beijing.volces.com/api/coding/v3"
-    ARK_MODEL: str = "ark-code-latest"
+    ARK_BASE_URL: str = "https://ark.cn-beijing.volces.com/api/v3"
+    ARK_MODEL: str = "doubao-seed-1-8-251228"
+    ARK_CHAT_COMPLETIONS_PATH: str = "/chat/completions"
 
     model_config = SettingsConfigDict(
         env_file=".env",

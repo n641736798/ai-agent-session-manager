@@ -3,91 +3,549 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chat</title>
+    <title>AI Chat - 智能会话助手</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
 
         .auth-panel, .chat-panel { display: none; flex-direction: column; flex: 1; }
         .auth-panel.active, .chat-panel.active { display: flex; }
 
-        .header { background: #fff; padding: 15px 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 18px; color: #333; }
-        .header button { background: #ff4757; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+        /* Auth Panel */
+        .auth-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .auth-form {
+            background: #fff;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+        .auth-form h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .auth-form .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .auth-form .tab {
+            display: flex;
+            margin-bottom: 24px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .auth-form .tab button {
+            flex: 1;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .auth-form .tab button.active {
+            background: #fff;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .auth-form input {
+            width: 100%;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            border: 2px solid #e8e8e8;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        .auth-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .auth-form input::placeholder {
+            color: #aaa;
+        }
+        .auth-form button.submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .auth-form button.submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        .auth-form button.submit:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-size: 13px;
+            margin-top: -8px;
+            margin-bottom: 16px;
+            display: none;
+        }
 
-        .auth-form { background: #fff; padding: 30px; border-radius: 8px; margin: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .auth-form h2 { margin-bottom: 20px; color: #333; }
-        .auth-form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-        .auth-form button { width: 100%; padding: 12px; background: #4CAF50; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        .auth-form .tab { display: flex; margin-bottom: 20px; }
-        .auth-form .tab button { flex: 1; background: #e0e0e0; color: #333; }
-        .auth-form .tab button.active { background: #4CAF50; color: #fff; }
+        /* Chat Panel */
+        .chat-panel {
+            flex-direction: row;
+        }
+        .sidebar {
+            width: 280px;
+            background: #fff;
+            border-right: 1px solid #e8e8e8;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        .sidebar-header h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.2s;
+        }
+        .new-chat-btn:hover {
+            transform: scale(1.02);
+        }
+        .session-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .session-item {
+            padding: 14px 20px;
+            border-bottom: 1px solid #f5f5f5;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .session-item:hover {
+            background: #f8f8ff;
+        }
+        .session-item.active {
+            background: #f0f0ff;
+            border-left: 3px solid #667eea;
+        }
+        .session-item .title {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .session-item .meta {
+            font-size: 12px;
+            color: #999;
+        }
+        .user-info {
+            padding: 16px 20px;
+            border-top: 1px solid #e8e8e8;
+            background: #fafafa;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .user-details {
+            flex: 1;
+        }
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        .logout-btn {
+            padding: 6px 12px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover {
+            background: #fff0f0;
+            border-color: #e74c3c;
+            color: #e74c3c;
+        }
 
-        .messages { flex: 1; overflow-y: auto; padding: 20px; }
-        .message { margin-bottom: 15px; display: flex; }
-        .message.user { justify-content: flex-end; }
-        .message.assistant { justify-content: flex-start; }
-        .message .bubble { max-width: 70%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; }
-        .message.user .bubble { background: #4CAF50; color: #fff; border-bottom-right-radius: 4px; }
-        .message.assistant .bubble { background: #fff; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        /* Main Chat Area */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8f9fa;
+        }
+        .chat-header {
+            padding: 16px 24px;
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chat-header h3 {
+            font-size: 16px;
+            color: #333;
+        }
+        .chat-header .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .chat-header .actions button {
+            padding: 6px 12px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            transition: all 0.2s;
+        }
+        .chat-header .actions button:hover {
+            background: #e8e8e8;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        .message.assistant {
+            align-self: flex-start;
+        }
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .message-content {
+            background: #fff;
+            padding: 12px 16px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            line-height: 1.6;
+            font-size: 14px;
+            color: #333;
+        }
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .message.assistant .message-content {
+            border-bottom-left-radius: 4px;
+        }
+        .message-content pre {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .message.user .message-content pre {
+            background: rgba(255,255,255,0.2);
+        }
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 8px 0;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
 
-        .input-area { background: #fff; padding: 15px 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; }
-        .input-area input { flex: 1; padding: 12px 16px; border: 1px solid #ddd; border-radius: 24px; font-size: 14px; outline: none; }
-        .input-area input:focus { border-color: #4CAF50; }
-        .input-area button { background: #4CAF50; color: #fff; border: none; padding: 12px 24px; border-radius: 24px; cursor: pointer; font-size: 14px; }
-        .input-area button:disabled { background: #ccc; }
+        .input-area {
+            padding: 16px 24px;
+            background: #fff;
+            border-top: 1px solid #e8e8e8;
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .input-wrapper input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e8e8e8;
+            border-radius: 24px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .input-wrapper button {
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .input-wrapper button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .input-wrapper button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
 
-        .session-list { background: #fff; width: 250px; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
-        .session-list .title { padding: 15px; font-weight: bold; border-bottom: 1px solid #ddd; }
-        .session-list .new-btn { margin: 10px; padding: 10px; background: #4CAF50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-        .session-list .sessions { flex: 1; overflow-y: auto; }
-        .session-list .session-item { padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; }
-        .session-list .session-item:hover { background: #f5f5f5; }
-        .session-list .session-item.active { background: #e8f5e9; }
+        /* Empty State */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            text-align: center;
+            padding: 40px;
+        }
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .empty-state h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .empty-state p {
+            font-size: 14px;
+            color: #999;
+        }
 
-        .main-content { flex: 1; display: flex; flex-direction: column; }
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .loading-overlay.hidden {
+            display: none;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1001;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .toast.error {
+            background: #e74c3c;
+        }
+        .toast.success {
+            background: #27ae60;
+        }
     </style>
 </head>
 <body>
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
     <div class="container">
         <div class="auth-panel active" id="authPanel">
-            <div class="auth-form">
-                <h2>AI Chat</h2>
-                <div class="tab">
-                    <button class="active" onclick="showTab('login')">Login</button>
-                    <button onclick="showTab('register')">Register</button>
-                </div>
-                <div id="loginForm">
-                    <input type="text" id="loginUsername" placeholder="Username">
-                    <input type="password" id="loginPassword" placeholder="Password">
-                    <button onclick="login()">Login</button>
-                </div>
-                <div id="registerForm" style="display:none">
-                    <input type="text" id="regUsername" placeholder="Username">
-                    <input type="email" id="regEmail" placeholder="Email">
-                    <input type="password" id="regPassword" placeholder="Password">
-                    <button onclick="register()">Register</button>
+            <div class="auth-container">
+                <div class="auth-form">
+                    <h1>AI Chat</h1>
+                    <p class="subtitle">智能会话助手，随时为您服务</p>
+                    <div class="tab">
+                        <button class="active" onclick="showTab('login')">登录</button>
+                        <button onclick="showTab('register')">注册</button>
+                    </div>
+                    <div id="loginForm">
+                        <input type="text" id="loginUsername" placeholder="用户名">
+                        <input type="password" id="loginPassword" placeholder="密码">
+                        <div class="error-message" id="loginError"></div>
+                        <button class="submit" onclick="login()">登录</button>
+                    </div>
+                    <div id="registerForm" style="display:none">
+                        <input type="text" id="regUsername" placeholder="用户名 (3-50字符)">
+                        <input type="email" id="regEmail" placeholder="邮箱">
+                        <input type="password" id="regPassword" placeholder="密码 (至少6字符)">
+                        <div class="error-message" id="regError"></div>
+                        <button class="submit" onclick="register()">注册</button>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="chat-panel" id="chatPanel">
-            <div class="header">
-                <h1>AI Chat</h1>
-                <button onclick="logout()">Logout</button>
-            </div>
-            <div style="flex:1;display:flex">
-                <div class="session-list">
-                    <div class="title">Sessions</div>
-                    <button class="new-btn" onclick="createSession()">+ New Chat</button>
-                    <div class="sessions" id="sessionList"></div>
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2>我的会话</h2>
+                    <button class="new-chat-btn" onclick="createSession()">
+                        <span>+</span> 新建会话
+                    </button>
                 </div>
-                <div class="main-content">
+                <div class="session-list" id="sessionList"></div>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">User</div>
+                    </div>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
+            </div>
+
+            <div class="main-area">
+                <div id="emptyState" class="empty-state">
+                    <div class="icon">💬</div>
+                    <h3>开始新对话</h3>
+                    <p>选择左侧会话或创建新会话开始聊天</p>
+                </div>
+
+                <div id="chatArea" style="display:none; flex-direction: column; flex: 1;">
+                    <div class="chat-header">
+                        <h3 id="chatTitle">新对话</h3>
+                        <div class="actions">
+                            <button onclick="clearChat()">清空对话</button>
+                            <button onclick="deleteCurrentSession()">删除会话</button>
+                        </div>
+                    </div>
                     <div class="messages" id="messages"></div>
                     <div class="input-area">
-                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendMessage()">
-                        <button id="sendBtn" onclick="sendMessage()">Send</button>
+                        <div class="input-wrapper">
+                            <input type="text" id="messageInput" placeholder="输入消息... (Enter 发送, Shift+Enter 换行)" onkeypress="handleKeyPress(event)">
+                            <button id="sendBtn" onclick="sendMessage()">发送</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -95,11 +553,36 @@
     </div>
 
     <script>
-        const API = 'http://localhost:8080/api/v1';
+        const API = 'http://localhost:8000/api/v1';
         let token = localStorage.getItem('token');
+        let currentUser = null;
         let currentSessionId = null;
+        let isLoading = false;
 
-        if (token) showChat();
+        if (token) {
+            initApp();
+        }
+
+        async function initApp() {
+            showLoading(true);
+            try {
+                const res = await fetch(`${API}/users/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    currentUser = await res.json();
+                    showChat();
+                    loadUserInfo();
+                    loadSessions();
+                } else {
+                    logout();
+                }
+            } catch (e) {
+                console.error('Init error:', e);
+                logout();
+            }
+            showLoading(false);
+        }
 
         function showTab(tab) {
             document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
@@ -107,54 +590,115 @@
             document.querySelectorAll('.auth-form .tab button').forEach((btn, i) => {
                 btn.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
             });
+            clearErrors();
+        }
+
+        function clearErrors() {
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('regError').style.display = 'none';
+        }
+
+        function showError(elementId, message) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.style.display = 'block';
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type + ' show';
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
         }
 
         async function register() {
-            const username = document.getElementById('regUsername').value;
-            const email = document.getElementById('regEmail').value;
+            const username = document.getElementById('regUsername').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
             const password = document.getElementById('regPassword').value;
 
-            const res = await fetch(`${API}/users/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
-            });
-
-            if (res.ok) {
-                alert('Registration successful! Please login.');
-                showTab('login');
-            } else {
-                const err = await res.json();
-                alert('Error: ' + (err.detail || 'Registration failed'));
+            if (!username || username.length < 3) {
+                showError('regError', '用户名至少需要3个字符');
+                return;
             }
+            if (!email || !email.includes('@')) {
+                showError('regError', '请输入有效的邮箱地址');
+                return;
+            }
+            if (!password || password.length < 6) {
+                showError('regError', '密码至少需要6个字符');
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const res = await fetch(`${API}/users/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('注册成功！请登录', 'success');
+                    showTab('login');
+                    document.getElementById('loginUsername').value = username;
+                } else {
+                    showError('regError', data.detail || '注册失败');
+                }
+            } catch (e) {
+                showError('regError', '网络错误，请重试');
+            }
+            showLoading(false);
         }
 
         async function login() {
-            const username = document.getElementById('loginUsername').value;
+            const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value;
 
-            const formData = new FormData();
-            formData.append('username', username);
-            formData.append('password', password);
-
-            const res = await fetch(`${API}/users/login`, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                token = data.access_token;
-                localStorage.setItem('token', token);
-                showChat();
-                loadSessions();
-            } else {
-                alert('Login failed');
+            if (!username || !password) {
+                showError('loginError', '请输入用户名和密码');
+                return;
             }
+
+            showLoading(true);
+            try {
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                const res = await fetch(`${API}/users/login`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    token = data.access_token;
+                    currentUser = data.user;
+                    localStorage.setItem('token', token);
+                    showChat();
+                    loadUserInfo();
+                    loadSessions();
+                    showToast('登录成功', 'success');
+                } else {
+                    showError('loginError', data.detail || '登录失败');
+                }
+            } catch (e) {
+                showError('loginError', '网络错误，请检查服务器是否启动');
+            }
+            showLoading(false);
         }
 
         function logout() {
             token = null;
+            currentUser = null;
+            currentSessionId = null;
             localStorage.removeItem('token');
             document.getElementById('authPanel').classList.add('active');
             document.getElementById('chatPanel').classList.remove('active');
@@ -165,62 +709,226 @@
             document.getElementById('chatPanel').classList.add('active');
         }
 
+        function loadUserInfo() {
+            if (currentUser) {
+                document.getElementById('userName').textContent = currentUser.username;
+                document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+            }
+        }
+
         async function loadSessions() {
-            const res = await fetch(`${API}/sessions`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const sessions = await res.json();
-                const list = document.getElementById('sessionList');
-                list.innerHTML = '';
-                sessions.forEach(s => {
-                    const div = document.createElement('div');
-                    div.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
-                    div.textContent = s.title || 'Chat ' + s.id.slice(0, 8);
-                    div.onclick = () => loadSession(s.id);
-                    list.appendChild(div);
+            try {
+                const res = await fetch(`${API}/sessions`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.ok) {
+                    const sessions = await res.json();
+                    const list = document.getElementById('sessionList');
+                    list.innerHTML = '';
+                    sessions.forEach(s => {
+                        const div = document.createElement('div');
+                        div.className = 'session-item' + (s.session_id === currentSessionId ? ' active' : '');
+                        div.onclick = () => loadSession(s.session_id);
+                        div.innerHTML = `
+                            <div class="title">${escapeHtml(s.title || '新对话')}</div>
+                            <div class="meta">${formatDate(s.updated_at)}</div>
+                        `;
+                        list.appendChild(div);
+                    });
+                }
+            } catch (e) {
+                console.error('Load sessions error:', e);
             }
         }
 
         async function createSession() {
-            const res = await fetch(`${API}/sessions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ title: 'New Chat' })
-            });
-            if (res.ok) {
-                const session = await res.json();
-                currentSessionId = session.id;
-                document.getElementById('messages').innerHTML = '';
-                loadSessions();
+            showLoading(true);
+            try {
+                const res = await fetch(`${API}/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ title: '新对话' })
+                });
+                if (res.ok) {
+                    const session = await res.json();
+                    currentSessionId = session.session_id;
+                    showChatArea();
+                    clearMessages();
+                    loadSessions();
+                    updateChatTitle('新对话');
+                } else {
+                    const data = await res.json();
+                    showToast('创建会话失败: ' + (data.detail || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showToast('创建会话失败: ' + e.message, 'error');
             }
+            showLoading(false);
         }
 
         async function loadSession(sessionId) {
+            if (isLoading) return;
+            showLoading(true);
             currentSessionId = sessionId;
-            const res = await fetch(`${API}/sessions/${sessionId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const session = await res.json();
-                const messagesDiv = document.getElementById('messages');
-                messagesDiv.innerHTML = '';
-                session.messages.forEach(m => addMessage(m.role, m.content));
-                loadSessions();
+
+            try {
+                const res = await fetch(`${API}/sessions/${sessionId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const session = await res.json();
+                    showChatArea();
+                    clearMessages();
+                    updateChatTitle(session.title || '新对话');
+
+                    if (session.messages && session.messages.length > 0) {
+                        session.messages.forEach(m => addMessage(m.role, m.content));
+                    }
+                    loadSessions();
+                }
+            } catch (e) {
+                showToast('加载会话失败', 'error');
             }
+            showLoading(false);
+        }
+
+        function showChatArea() {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('chatArea').style.display = 'flex';
+        }
+
+        function hideChatArea() {
+            document.getElementById('emptyState').style.display = 'flex';
+            document.getElementById('chatArea').style.display = 'none';
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        function updateChatTitle(title) {
+            document.getElementById('chatTitle').textContent = title;
         }
 
         function addMessage(role, content) {
             const messagesDiv = document.getElementById('messages');
             const div = document.createElement('div');
             div.className = 'message ' + role;
-            div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
+            const avatar = role === 'user' ? 'U' : 'AI';
+            div.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">${formatMessage(content)}</div>
+            `;
             messagesDiv.appendChild(div);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function addTypingIndicator() {
+            const messagesDiv = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = 'message assistant';
+            div.id = 'typingIndicator';
+            div.innerHTML = `
+                <div class="message-avatar">AI</div>
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            if (!content || isLoading) return;
+
+            if (!currentSessionId) {
+                await createSession();
+            }
+
+            input.value = '';
+            addMessage('user', content);
+            isLoading = true;
+            updateSendButton(true);
+            addTypingIndicator();
+
+            try {
+                const res = await fetch(`${API}/sessions/${currentSessionId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ role: 'user', content })
+                });
+
+                removeTypingIndicator();
+
+                if (res.ok) {
+                    const data = await res.json();
+                    addMessage('assistant', data.response);
+                    loadSessions();
+                } else {
+                    const data = await res.json();
+                    addMessage('assistant', '抱歉，' + (data.detail || '发生错误'));
+                }
+            } catch (e) {
+                removeTypingIndicator();
+                addMessage('assistant', '网络错误，请检查服务器连接');
+            }
+
+            isLoading = false;
+            updateSendButton(false);
+        }
+
+        function updateSendButton(disabled) {
+            document.getElementById('sendBtn').disabled = disabled;
+        }
+
+        async function clearChat() {
+            if (!currentSessionId) return;
+            clearMessages();
+            showToast('对话已清空', 'success');
+        }
+
+        async function deleteCurrentSession() {
+            if (!currentSessionId) return;
+            if (!confirm('确定要删除这个会话吗？')) return;
+
+            showLoading(true);
+            try {
+                const res = await fetch(`${API}/sessions/${currentSessionId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    currentSessionId = null;
+                    hideChatArea();
+                    loadSessions();
+                    showToast('会话已删除', 'success');
+                }
+            } catch (e) {
+                showToast('删除失败', 'error');
+            }
+            showLoading(false);
         }
 
         function escapeHtml(text) {
@@ -229,35 +937,26 @@
             return div.innerHTML;
         }
 
-        async function sendMessage() {
-            const input = document.getElementById('messageInput');
-            const content = input.value.trim();
-            if (!content) return;
-            if (!currentSessionId) await createSession();
+        function formatMessage(text) {
+            let formatted = escapeHtml(text);
+            formatted = formatted.replace(/\n/g, '<br>');
+            formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+            formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            return formatted;
+        }
 
-            const sendBtn = document.getElementById('sendBtn');
-            sendBtn.disabled = true;
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
 
-            addMessage('user', content);
-            input.value = '';
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
 
-            const res = await fetch(`${API}/sessions/${currentSessionId}/messages`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ role: 'user', content })
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                addMessage('assistant', data.response);
-            } else {
-                addMessage('assistant', 'Error: Failed to get response');
-            }
-
-            sendBtn.disabled = false;
+            return date.toLocaleDateString('zh-CN');
         }
     </script>
 </body>
